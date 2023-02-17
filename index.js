@@ -6,6 +6,7 @@ require("dotenv").config();
 const { ApiPromise } = require('@polkadot/api');
 const { HttpProvider } = require('@polkadot/rpc-provider');
 const { xxhashAsHex } = require('@polkadot/util-crypto');
+const bjson = require('big-json');
 const execFileSync = require('child_process').execFileSync;
 const execSync = require('child_process').execSync;
 const binaryPath = path.join(__dirname, 'data', 'binary');
@@ -121,7 +122,18 @@ async function main() {
     execSync(binaryPath + ` build-spec --chain ${forkChain} --raw > ` + forkedSpecPath);
   }
 
-  let storage = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
+  console.log(chalk.green('Parsing storage'));
+  let storage = await new Promise((resolve, reject) => {
+    fs.createReadStream(storagePath, 'utf8')
+      .pipe(bjson.createParseStream()
+        .on('data', function(data) {
+          resolve(data);
+        })
+        .on('error', function() {
+          reject();
+        }));
+  });
+  // let storage = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
   let originalSpec = JSON.parse(fs.readFileSync(originalSpecPath, 'utf8'));
   let forkedSpec = JSON.parse(fs.readFileSync(forkedSpecPath, 'utf8'));
 
@@ -138,7 +150,7 @@ async function main() {
   // Delete System.LastRuntimeUpgrade to ensure that the on_runtime_upgrade event is triggered
   delete forkedSpec.genesis.raw.top['0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8'];
 
-  fixParachinStates(api, forkedSpec);
+  // fixParachinStates(api, forkedSpec); // TODO ADD BACK WHEN PARACHAINS
 
   // Set the code to the current runtime code
   forkedSpec.genesis.raw.top['0x3a636f6465'] = '0x' + fs.readFileSync(hexPath, 'utf8').trim();
@@ -151,7 +163,15 @@ async function main() {
     forkedSpec.genesis.raw.top['0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b'] = '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d';
   }
 
-  fs.writeFileSync(forkedSpecPath, JSON.stringify(forkedSpec, null, 4));
+  // fs.writeFileSync(forkedSpecPath, JSON.stringify(forkedSpec, null, 4));
+  console.log(chalk.green('Writing forked spec (this may take a while)'));
+  await new Promise((resolve, reject) => {
+    bjson.createStringifyStream({ body: forkedSpec })
+      .pipe(fs.createWriteStream(forkedSpecPath)
+        .on('end', function() {
+          resolve();
+        }));
+  });
 
   console.log('Forked genesis generated successfully. Find it at ./data/fork.json');
   process.exit();
