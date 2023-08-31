@@ -82,3 +82,18 @@ If you would like to understand how this script works, please read this [blog po
 ## Credits
 
 This script is based on [a script shared in the substrate riot channel](https://hackmd.io/mGgNZX0VT4S0UTaq89-_SQ)
+
+## TERNOA SPECIFIC
+ues these in .env (for alphanet)
+HTTP_RPC_ENDPOINT=http://0.0.0.0:9933
+ORIG_CHAIN=alphanet
+
+you should have a validator running in the same VM with following flags
+
+/usr/bin/ternoa --name alphanet-validator-TEMPERORY-WITH-EXTRA-FLAGS --chain alphanet -d /block/chain/node-data --validator --rpc-max-response-size 10000 --rpc-cors all --rpc-external --unsafe-rpc-external --rpc-methods Unsafe
+
+then npm start works, because it will connect to this local running node
+otherwise, if you try to run with HTTPS rpc endpoint, the connection will not establish as the unsafe flags are not available on normal running validators 
+
+after you have the forked spec file you can use the following command on binary to run a forked off chain (considering your forked spec is in fork-TODAY.json)
+./binary --chain fork-TODAY.json --alice --rpc-max-response-size 10000 --rpc-cors all --rpc-external --unsafe-rpc-external --ws-external --rpc-methods Unsafe -d ./node-fork-data --state-pruning archive
